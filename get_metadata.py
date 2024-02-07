@@ -112,7 +112,8 @@ if __name__ == "__main__":
     # retrieve the metadata and write to file as CSV
     for i in range(0, len(accns), args.batch):
         query = ','.join(accns[i:(i+args.batch)])
-        for row in get_metadata(query, fields, db=args.db):
-            row.update({"header": headers[i]})
+        rows = get_metadata(query, fields, db=args.db)
+        for j, row in enumerate(rows):
+            row.update({"header": headers[i+j]})
             writer.writerow(row)
         time.sleep(args.delay)
