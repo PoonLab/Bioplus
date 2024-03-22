@@ -10,15 +10,21 @@ Retrieve metadata (e.g., sample collection dates) associated with sequences
 in the input file, based on their respective NCBI Genbank accession numbers.
 """
 
-def find_accn(label, pat=re.compile("[A-Z]{1,3}[0-9]{5,8}\\.[0-9]|[NXAYW][CGTW"
-                                    "ZMRP]_[A-Z0-9]+\\.[0-9]")):
+pat1 = re.compile("[A-Z]{1,3}[0-9]{5,8}\\.[0-9]|[NXAYW][CGTWZMRP]_[A-Z0-9]+\\.[0-9]")
+pat2 = re.compile("[A-Z]{1,3}[0-9]{5,8}\\.[0-9]|[NXAYW][CGTWZMRP]_[A-Z0-9]+")
+
+
+def find_accn(label, versioned=True):
     """
     Extract Genbank accession number from an input string.
     :param label:  str, string to process
-    :param pat:  re.Pattern object
+    :param versioned:  bool, if True then accession number must have ".[0-9]" suffix
     :return:  first matching substring, or None if no matches
     """
-    hits = pat.findall(label)
+    if versioned:
+        hits = pat1.findall(label)
+    else:
+        hits = pat2.findall(label)
     if len(hits) == 0:
         return None
     return hits[0]
@@ -73,6 +79,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--outfile", type=argparse.FileType('w'), default=sys.stdout,
         help="option, path to write CSV output. Default is stdout."
+    )
+    parser.add_argument(
+        "--nover", action="store_true",
+        help="Set if accession number has no version number suffix, e.g., "
+             "AB123456 instead of AB123456.1"
     )
     args = parser.parse_args()
 
