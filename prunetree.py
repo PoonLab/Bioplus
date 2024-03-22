@@ -8,12 +8,12 @@ removing the shortest tips until only a target number of tips remain.
 The tip labels are used to select sequences from the alignment. 
 """
 
-def prunetree(phy, target):
+def prune_tips(phy, target):
     """
     Progressively remove the shortest terminal branches in the tree until
     we reach a target number of tips.
     :param phy:  Bio.Phylo object
-    :param target:  int, number of tips we want to prune down to.
+    :param target:  float, number of tips we want to prune down to.
     :return:  Bio.Phylo object
     """
     tips = phy.get_terminals()  # returns a list of Clade objects
@@ -32,6 +32,31 @@ def prunetree(phy, target):
     return phy
 
 
+def prune_length(phy, target):
+    """
+    Progressively remove the shortest terminal branches in the tree until
+    we reach a target tree length.
+    :param phy:  Bio.Phylo object
+    :param target:  float, target tree length to prune to
+    :return:  Bio.Phylo object
+    """
+    tlen = phy.total_branch_length()
+    if target >= tlen:
+        sys.stderr.write(f"prune_length: requirement already met "
+                         f"({tlen}<={target}")
+
+    tips = phy.get_terminals()
+    while tlen > target:
+        # we have to re-sort every time because removing a branch
+        # will lengthen another branch
+        tips = sorted(tips, key=lambda x: x.branch_length)
+        _ = phy.prune(tips[0])
+        tlen -= tips[0].branch_length
+        tips = tips[1:]  # update list
+
+    return phy
+
+
 if __name__ == "__main__":
     # command-line interface
     parser = argparse.ArgumentParser(description=description)
@@ -44,8 +69,13 @@ if __name__ == "__main__":
         help="Path to file containing Newick tree string."
     )
     parser.add_argument(
-        "-n", "--target", type=int, required=True,
-        help="Target number of sequences to reduce alignment to."
+        "-n", "--target", type=float, required=True,
+        help="Target number of sequences (default) or tree length "
+             "(--length) to reduce alignment to."
+    )
+    parser.add_argument(
+        "--length", action="store_true",
+        help="Prune tree to target total length instead of tip count."
     )
     parser.add_argument(
         "-f", "--format", default="fasta", type=str,
@@ -70,8 +100,19 @@ if __name__ == "__main__":
         sys.stderr.write("ERROR: Input tree labels do not match alignment.")
         sys.exit()
 
-    # perform pruning and write resulting sequences to file
-    pruned = prunetree(phy, target=args.target)
+    # perform pruning
+    if args.length:
+        tlen = phy.total_branch_length()
+        sys.stderr.write(f"Starting tree length: {tlen}\n")
+        if args.target <= 0:
+            sys.stderr.write("ERROR! Target length must be positive!\n")
+            sys.exit()
+        pruned = prune_length(phy, target=args.target)
+    else:
+        sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
+        pruned = prune_tips(phy, target=args.target)
+
+    # write resulting sequences to output file
     for tip in pruned.get_terminals():
         record = records[tip.name]
         _ = SeqIO.write(record, args.outfile, "fasta")
