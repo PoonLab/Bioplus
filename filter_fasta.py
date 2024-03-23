@@ -32,6 +32,9 @@ if __name__ == "__main__":
     parser.add_argument("--missing", type=str, default="NA",
                         help="String that indicates a value is missing. "
                              "Defaults to 'NA'.")
+    parser.add_argument("--full", action="store_true",
+                        help="Set to match labels by full names (description) "
+                             "and not just accession numbers (name).")
     args = parser.parse_args()
 
     # parse CSV file
@@ -41,11 +44,17 @@ if __name__ == "__main__":
         values.update({row[args.name]: row[args.field]})
 
     # apply parsed dates to sequence labels
+    match_error = False
     for record in SeqIO.parse(args.infile, args.format):
-        header = record.name
+        header = record.description if args.full else record.name
         value = values.get(header, None)
         if value is None:
             sys.stderr.write(f"Warning: Could not retrieve metadata for {header}, skipping.")
+            if not match_error:
+                sys.stderr.write(
+                    "If this affects multiple records, try running with "
+                    "--full flag to match full labels.")
+                match_error = True
             continue
 
         if value == "" or value == args.missing:
