@@ -113,6 +113,9 @@ if __name__ == "__main__":
                         help="Write all sequences even if dates fail to parse.")
     parser.add_argument("--year", action="store_true",
                         help="Write only years of sample collection.")
+    parser.add_argument("--full", action="store_true",
+                        help="Set to match labels by full names (description) "
+                             "and not just accession numbers (name).")
     args = parser.parse_args()
 
     # load metadata and parse collection dates
@@ -128,7 +131,7 @@ if __name__ == "__main__":
 
     # apply parsed dates to sequence labels
     for record in SeqIO.parse(args.infile, args.format):
-        header = record.name
+        header = record.description if args.full else record.name
         try:
             dt = coldates[header]
         except KeyError:
