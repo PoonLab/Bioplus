@@ -8,12 +8,14 @@ removing the shortest tips until only a target number of tips remain.
 The tip labels are used to select sequences from the alignment. 
 """
 
-def prune_tips(phy, target):
+
+def prune_tips(phy, target, cache=False):
     """
     Progressively remove the shortest terminal branches in the tree until
     we reach a target number of tips.
     :param phy:  Bio.Phylo object
     :param target:  float, number of tips we want to prune down to.
+    :param cache:  if True, copy label of pruned tip to closest terminal node
     :return:  Bio.Phylo object
     """
     tips = phy.get_terminals()  # returns a list of Clade objects
@@ -24,9 +26,18 @@ def prune_tips(phy, target):
 
     while len(tips) > target:
         # find shortest tip
-        # FIXME: faster to update instead of rebuilding every time?
+        # FIXME: faster to update instead of resorting every time?
         tips = sorted(tips, key=lambda x: x.branch_length)
-        _ = phy.prune(tips[0])
+        tip = tips[0]
+        parent = phy.prune(tip)
+        if cache:
+            kin = parent.get_terminals(order="level")[0]
+            if not hasattr(kin, "cache"):
+                kin.cache = []
+            kin.cache.append(tip.name)
+            if hasattr(tip, "cache"):
+                kin.cache.extend(tip.cache)
+
         tips = tips[1:]  # instead of calling get_terminals() again
 
     return phy
@@ -85,6 +96,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--outfile", default=sys.stdout, type=argparse.FileType('w'),
         help="Path to write down-sampled alignment FASTA file."
+    )
+    parser.add_argument(
+        "--cache", action="store_true", help="Option "
     )
     args = parser.parse_args()
 
