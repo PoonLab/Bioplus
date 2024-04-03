@@ -71,19 +71,24 @@ def prune_length(phy, target):
 if __name__ == "__main__":
     # command-line interface
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument(
-        "infile", type=argparse.FileType('r'),
-        help="Path to file containing sequence alignment."
-    )
+
     parser.add_argument(
         "tree", type=argparse.FileType('r'),
         help="Path to file containing Newick tree string."
     )
+
     parser.add_argument(
         "-n", "--target", type=float, required=True,
         help="Target number of sequences (default) or tree length "
              "(--length) to reduce alignment to."
     )
+
+    parser.add_argument(
+        "--seq", type=argparse.FileType('r'), default=None,
+        help="Path to file containing sequence alignment.  Script will "
+             "output reduced set of sequences instead of tree."
+    )
+
     parser.add_argument(
         "--length", action="store_true",
         help="Prune tree to target total length instead of tip count."
@@ -91,28 +96,30 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f", "--format", default="fasta", type=str,
         help="Specify format of input alignment.  Must be supported by "
-             "Bio.AlignIO (default 'fasta')."
+             "Bio.AlignIO (default 'fasta').  Only used for --seq."
     )
     parser.add_argument(
-        "-o", "--outfile", default=sys.stdout, type=argparse.FileType('w'),
-        help="Path to write down-sampled alignment FASTA file."
+        "-o", "--outfile", type=argparse.FileType('w'),
+        help="Path to write down-sampled alignment FASTA (--seq) or tree."
     )
     parser.add_argument(
-        "--cache", action="store_true", help="Option "
+        "--csvfile", type=argparse.FileType('w'), default=None,
+        help="Optional, record the labels of pruned tips associated with "
+             "remaining tips into a CSV file."
     )
     args = parser.parse_args()
 
-    # checks whether sequences have the same length
-    aln = AlignIO.read(args.infile, args.format)
-    records = dict([(record.name, record) for record in aln])
-    labels = set(records.keys())
-
-    # check whether tree matches alignment
     phy = Phylo.read(args.tree, "newick")
     tip_names = set([tip.name for tip in phy.get_terminals()])
-    if tip_names != labels:
-        sys.stderr.write("ERROR: Input tree labels do not match alignment.")
-        sys.exit()
+
+    if args.seq:
+        # checks whether sequences have the same length
+        aln = AlignIO.read(args.infile, args.format)
+        records = dict([(record.name, record) for record in aln])
+        labels = set(records.keys())
+        if tip_names != labels:
+            sys.stderr.write("ERROR: Input tree labels do not match alignment.")
+            sys.exit()
 
     # perform pruning
     if args.length:
@@ -124,10 +131,21 @@ if __name__ == "__main__":
         pruned = prune_length(phy, target=args.target)
     else:
         sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
-        pruned = prune_tips(phy, target=args.target)
+        pruned = prune_tips(phy, target=args.target,
+                            cache=args.csvfile is not None)
 
-    # write resulting sequences to output file
-    for tip in pruned.get_terminals():
-        record = records[tip.name]
-        _ = SeqIO.write(record, args.outfile, "fasta")
-
+    if args.seq:
+        # write resulting sequences to output file
+        for tip in pruned.get_terminals():
+            record = records[tip.name]
+            _ = SeqIO.write(record, args.outfile, "fasta")
+    else:
+        # write pruned tree to output file
+        Phylo.write(pruned, args.outfile, 'newick')
+        if args.csvfile:
+            # write pruned labels to CSV
+            for tip in pruned.get_terminals():
+                if not hasattr(tip, 'cache'):
+                    continue
+                for label in tip.cache:
+                    args.csvfile.write(f"{tip.name},{label}\n")
