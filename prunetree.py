@@ -95,9 +95,11 @@ if __name__ == "__main__":
         help="Path to file containing Newick tree string."
     )
     parser.add_argument(
-        "-t", "--target", type=float, required=True,
+        "-t", "--target", type=float, default=None,
         help="Target quantity, conditional on --mode; e.g., -t 100 "
-             "--mode ntips will prune the tree down to 100 tips."
+             "--mode ntips will prune the tree down to 100 tips. "
+             "If this is not specified, then script will provide info "
+             "about input tree."
     )
     parser.add_argument(
         "--seq", type=argparse.FileType('r'), default=None,
@@ -141,15 +143,21 @@ if __name__ == "__main__":
     # perform pruning
     if args.mode == "treelen":
         tlen = phy.total_branch_length()
-        sys.stderr.write(f"Starting tree length: {tlen}\n")
-        if args.target <= 0:
-            sys.stderr.write("ERROR! Target length must be positive!\n")
+        if args.target is None or args.target <= 0:
+            sys.stderr.write(f"Starting tree length: {tlen}\n")
             sys.exit()
         pruned = prune_length(phy, target=args.target)
     elif args.mode == "tiplen":
+        if args.target is None:
+            tips = phy.get_terminals()
+            tiplens = sorted([tip.branch_length for tip in tips])
+            sys.stderr.write(f"Shortest tip lengths: {tiplens[:5]}")
+            sys.exit()
         pruned = prune_tiplen(phy, target=args.target)
     elif args.mode == "ntips":
-        sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
+        if args.target is None:
+            sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
+            sys.exit()
         pruned = prune_tips(phy, target=args.target,
                             cache=args.csvfile is not None)
     else:
