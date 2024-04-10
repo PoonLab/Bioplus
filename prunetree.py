@@ -55,7 +55,6 @@ def prune_length(phy, target):
     if target >= tlen:
         sys.stderr.write(f"prune_length: requirement already met "
                          f"({tlen}<={target}")
-
     tips = phy.get_terminals()
     while tlen > target:
         # we have to re-sort every time because removing a branch
@@ -64,7 +63,26 @@ def prune_length(phy, target):
         _ = phy.prune(tips[0])
         tlen -= tips[0].branch_length
         tips = tips[1:]  # update list
+    return phy
 
+
+def prune_tiplen(phy, target):
+    """
+    Progressively remove terminal branches that have a length below
+    the target minimum length (--mode tiplen).
+    :param phy:  Bio.Phylo object
+    :param target:  float, minimum tip length
+    :return:  Bio.Phylo object
+    """
+    tips = phy.get_terminals()
+    while True:
+        # we have to re-sort every time because removing a branch
+        # will lengthen another branch
+        tips = sorted(tips, key=lambda x: x.branch_length)
+        if tips[0].branch_length > target:
+            break
+        _ = phy.prune(tips[0])
+        tips = tips[1:]  # update list
     return phy
 
 
@@ -76,22 +94,21 @@ if __name__ == "__main__":
         "tree", type=argparse.FileType('r'),
         help="Path to file containing Newick tree string."
     )
-
     parser.add_argument(
-        "-n", "--target", type=float, required=True,
-        help="Target number of sequences (default) or tree length "
-             "(--length) to reduce alignment to."
+        "-t", "--target", type=float, required=True,
+        help="Target quantity, conditional on --mode; e.g., -t 100 "
+             "--mode ntips will prune the tree down to 100 tips."
     )
-
     parser.add_argument(
         "--seq", type=argparse.FileType('r'), default=None,
         help="Path to file containing sequence alignment.  Script will "
              "output reduced set of sequences instead of tree."
     )
-
     parser.add_argument(
-        "--length", action="store_true",
-        help="Prune tree to target total length instead of tip count."
+        "--mode", choices=['ntips', 'treelen', 'tiplen'],
+        help="Prune tree to a target of [ntips] number of tips; "
+             "[treelen] total branch length of tree; or [tiplen] "
+             "minimum branch length."
     )
     parser.add_argument(
         "-f", "--format", default="fasta", type=str,
@@ -122,17 +139,22 @@ if __name__ == "__main__":
             sys.exit()
 
     # perform pruning
-    if args.length:
+    if args.mode == "treelen":
         tlen = phy.total_branch_length()
         sys.stderr.write(f"Starting tree length: {tlen}\n")
         if args.target <= 0:
             sys.stderr.write("ERROR! Target length must be positive!\n")
             sys.exit()
         pruned = prune_length(phy, target=args.target)
-    else:
+    elif args.mode == "tiplen":
+        pruned = prune_tiplen(phy, target=args.target)
+    elif args.mode == "ntips":
         sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
         pruned = prune_tips(phy, target=args.target,
                             cache=args.csvfile is not None)
+    else:
+        sys.stderr.write(f"ERROR: Unknown --mode option {args.mode}, exiting\n")
+        sys.exit()
 
     if args.seq:
         # write resulting sequences to output file
