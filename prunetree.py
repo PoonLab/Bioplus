@@ -107,7 +107,7 @@ if __name__ == "__main__":
              "output reduced set of sequences instead of tree."
     )
     parser.add_argument(
-        "--mode", choices=['ntips', 'treelen', 'tiplen'],
+        "--mode", choices=['ntips', 'treelen', 'tiplen'], default='ntips',
         help="Prune tree to a target of [ntips] number of tips; "
              "[treelen] total branch length of tree; or [tiplen] "
              "minimum branch length."
@@ -118,8 +118,9 @@ if __name__ == "__main__":
              "Bio.AlignIO (default 'fasta').  Only used for --seq."
     )
     parser.add_argument(
-        "-o", "--outfile", type=argparse.FileType('w'),
+        "-o", "--outfile", type=argparse.FileType('w'), default=sys.stdout,
         help="Path to write down-sampled alignment FASTA (--seq) or tree."
+             "Defaults to stdout."
     )
     parser.add_argument(
         "--csvfile", type=argparse.FileType('w'), default=None,
@@ -151,7 +152,11 @@ if __name__ == "__main__":
         if args.target is None:
             tips = phy.get_terminals()
             tiplens = sorted([tip.branch_length for tip in tips])
-            sys.stderr.write(f"Shortest tip lengths: {tiplens[:5]}")
+            sys.stderr.write(f"Shortest tip lengths:\n")
+            sys.stderr.write(f"  min:    {tiplens[0]}\n")
+            sys.stderr.write(f"  2.5%:   {tiplens[round(0.025 * len(tips))]}\n")
+            sys.stderr.write(f"  25%:    {tiplens[round(0.25 * len(tips))]}\n")
+            sys.stderr.write(f"  median: {tiplens[round(0.5*len(tips))]}\n")
             sys.exit()
         pruned = prune_tiplen(phy, target=args.target)
     elif args.mode == "ntips":
