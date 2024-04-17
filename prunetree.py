@@ -1,6 +1,7 @@
 import argparse
 from Bio import AlignIO, SeqIO, Phylo
 import sys
+import csv
 
 description = """\
 Down-sample a sequence alignment by building a tree and progressively
@@ -43,7 +44,7 @@ def prune_tips(phy, target, cache=False):
     return phy
 
 
-def prune_length(phy, target):
+def prune_length(phy, target, cache=False):
     """
     Progressively remove the shortest terminal branches in the tree until
     we reach a target tree length.
@@ -60,13 +61,21 @@ def prune_length(phy, target):
         # we have to re-sort every time because removing a branch
         # will lengthen another branch
         tips = sorted(tips, key=lambda x: x.branch_length)
-        _ = phy.prune(tips[0])
-        tlen -= tips[0].branch_length
+        tip = tips[0]
+        parent = phy.prune(tip)
+        if cache:
+            kin = parent.get_terminals(order="level")[0]
+            if not hasattr(kin, "cache"):
+                kin.cache = []
+            kin.cache.append(tip.name)
+            if hasattr(tip, "cache"):
+                kin.cache.extend(tip.cache)
+        tlen -= tip.branch_length
         tips = tips[1:]  # update list
     return phy
 
 
-def prune_tiplen(phy, target):
+def prune_tiplen(phy, target, cache=False):
     """
     Progressively remove terminal branches that have a length below
     the target minimum length (--mode tiplen).
@@ -79,9 +88,19 @@ def prune_tiplen(phy, target):
         # we have to re-sort every time because removing a branch
         # will lengthen another branch
         tips = sorted(tips, key=lambda x: x.branch_length)
-        if tips[0].branch_length > target:
+        tip = tips[0]
+        if tip.branch_length > target:
             break
-        _ = phy.prune(tips[0])
+
+        parent = phy.prune(tip)
+        if cache:
+            kin = parent.get_terminals(order="level")[0]
+            if not hasattr(kin, "cache"):
+                kin.cache = []
+            kin.cache.append(tip.name)
+            if hasattr(tip, "cache"):
+                kin.cache.extend(tip.cache)
+
         tips = tips[1:]  # update list
     return phy
 
@@ -134,7 +153,7 @@ if __name__ == "__main__":
 
     if args.seq:
         # checks whether sequences have the same length
-        aln = AlignIO.read(args.infile, args.format)
+        aln = AlignIO.read(args.seq, args.format)
         records = dict([(record.name, record) for record in aln])
         labels = set(records.keys())
         if tip_names != labels:
@@ -147,7 +166,7 @@ if __name__ == "__main__":
         if args.target is None or args.target <= 0:
             sys.stderr.write(f"Starting tree length: {tlen}\n")
             sys.exit()
-        pruned = prune_length(phy, target=args.target)
+        pruned = prune_length(phy, target=args.target, cache=args.csvfile is not None)
     elif args.mode == "tiplen":
         if args.target is None:
             tips = phy.get_terminals()
@@ -158,7 +177,7 @@ if __name__ == "__main__":
             sys.stderr.write(f"  25%:    {tiplens[round(0.25 * len(tips))]}\n")
             sys.stderr.write(f"  median: {tiplens[round(0.5*len(tips))]}\n")
             sys.exit()
-        pruned = prune_tiplen(phy, target=args.target)
+        pruned = prune_tiplen(phy, target=args.target, cache=args.csvfile is not None)
     elif args.mode == "ntips":
         if args.target is None:
             sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
@@ -177,10 +196,12 @@ if __name__ == "__main__":
     else:
         # write pruned tree to output file
         Phylo.write(pruned, args.outfile, 'newick')
-        if args.csvfile:
-            # write pruned labels to CSV
-            for tip in pruned.get_terminals():
-                if not hasattr(tip, 'cache'):
-                    continue
-                for label in tip.cache:
-                    args.csvfile.write(f"{tip.name},{label}\n")
+
+    if args.csvfile:
+        # write pruned labels to CSV
+        writer = csv.writer(args.csvfile)
+        for tip in pruned.get_terminals():
+            if not hasattr(tip, 'cache'):
+                continue
+            for label in tip.cache:
+                writer.writerow([tip.name, label])
