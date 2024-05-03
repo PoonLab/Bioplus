@@ -1,4 +1,4 @@
-from Bio import Entrez, SeqIO
+from Bio import Entrez, SeqIO, Phylo
 import sys
 import time
 import argparse
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "infile", type=argparse.FileType('r'),
-        help="Path to file containing sequences. Labels MUST contain Genbank "
+        help="Path to file containing sequences or tree. Labels MUST contain Genbank "
              "accession numbers."
     )
     parser.add_argument(
@@ -62,19 +62,19 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-f", "--format", type=str, default='fasta',
-        help="Format of input sequence file; must be supported by Bio.SeqIO.  "
-             "Defaults to 'fasta'.")
+        help="Format of input sequence/tree file; must be supported by Bio.SeqIO or "
+             "Phylo.  Defaults to 'fasta' (use 'newick' for trees).")
     parser.add_argument(
         "--db", type=str, default="nucleotide",
         help="Database to query, default 'nucleotide'."
     )
     parser.add_argument(
         "--delay", type=float, default=3.0,
-        help="Number of seconds to pause between queries."
+        help="Number of seconds to pause between queries (default 3)."
     )
     parser.add_argument(
         "--batch", type=int, default=50,
-        help="Number of records to retrieve per request."
+        help="Number of records to retrieve per request (default 50)."
     )
     parser.add_argument(
         "-o", "--outfile", type=argparse.FileType('w'), default=sys.stdout,
@@ -96,10 +96,13 @@ if __name__ == "__main__":
     Entrez.email = args.email
 
     # extract accessions from input
-    records = SeqIO.parse(args.infile, args.format)
-    headers = [record.description for record in records]
+    if args.format == "newick":
+        phy = Phylo.read(args.infile, "newick")
+        headers = [tip.name for tip in phy.get_terminals()]
+    else:
+        records = SeqIO.parse(args.infile, args.format)
+        headers = [record.description for record in records]
     intermed = [find_accn(header) for header in headers]
-
     accns = [a for a in intermed if a is not None]
     if len(accns) == 0:
         sys.stderr.write("\nERROR: Failed to parse any accession numbers from "

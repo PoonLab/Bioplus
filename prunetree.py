@@ -10,13 +10,14 @@ The tip labels are used to select sequences from the alignment.
 """
 
 
-def prune_tips(phy, target, cache=False):
+def prune_tips(phy, target, cache=False, trace=False):
     """
     Progressively remove the shortest terminal branches in the tree until
     we reach a target number of tips.
     :param phy:  Bio.Phylo object
     :param target:  float, number of tips we want to prune down to.
-    :param cache:  if True, copy label of pruned tip to closest terminal node
+    :param cache:  bool, copy label of pruned tip to closest terminal node
+    :param trace:  bool, print tree length as a function of number of tips
     :return:  Bio.Phylo object
     """
     tips = phy.get_terminals()  # returns a list of Clade objects
@@ -29,6 +30,9 @@ def prune_tips(phy, target, cache=False):
         # find shortest tip
         # FIXME: faster to update instead of resorting every time?
         tips = sorted(tips, key=lambda x: x.branch_length)
+        if trace:
+            sys.stdout.write(f"{len(tips)},{phy.total_branch_length()}\n")
+            sys.stdout.flush()
         tip = tips[0]
         parent = phy.prune(tip)
         if cache:
@@ -154,10 +158,11 @@ if __name__ == "__main__":
     if args.seq:
         # checks whether sequences have the same length
         aln = AlignIO.read(args.seq, args.format)
-        records = dict([(record.name, record) for record in aln])
+        records = dict([(record.description.split("'")[0], record) for record in aln])
         labels = set(records.keys())
         if tip_names != labels:
-            sys.stderr.write("ERROR: Input tree labels do not match alignment.")
+            sys.stderr.write("ERROR: Input tree labels do not match alignment.\n")
+            sys.stderr.write(f"{tip_names.difference(labels)}\n")
             sys.exit()
 
     # perform pruning
@@ -180,7 +185,8 @@ if __name__ == "__main__":
         pruned = prune_tiplen(phy, target=args.target, cache=args.csvfile is not None)
     elif args.mode == "ntips":
         if args.target is None:
-            sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
+            prune_tips(phy, target=3, trace=True)
+            #sys.stderr.write(f"Starting tip count: {len(phy.get_terminals())}\n")
             sys.exit()
         pruned = prune_tips(phy, target=args.target,
                             cache=args.csvfile is not None)
