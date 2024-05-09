@@ -102,11 +102,15 @@ if __name__ == "__main__":
     else:
         records = SeqIO.parse(args.infile, args.format)
         headers = [record.description for record in records]
-    intermed = [find_accn(header) for header in headers]
+
+    intermed = [find_accn(header, versioned=not args.nover) for header in headers]
     accns = [a for a in intermed if a is not None]
     if len(accns) == 0:
         sys.stderr.write("\nERROR: Failed to parse any accession numbers from "
-                         f"{args.infile.name}!\n\n")
+                         f"{args.infile.name}!\n")
+        if args.infile.name.endswith(".nwk"):
+            sys.stderr.write("*** This seems to be a tree, did you forget to set `--format "
+                             "newick`? ***\n")
         sys.exit()
 
     sys.stderr.write(
