@@ -130,8 +130,9 @@ if __name__ == "__main__":
     sys.stderr.flush()
 
     # prepare output file
-    writer = DictWriter(args.outfile, fieldnames=('header',)+fields)
-    writer.writeheader()
+    if not args.relabel:
+        writer = DictWriter(args.outfile, fieldnames=('header',)+fields)
+        writer.writeheader()
 
     # retrieve the metadata and write to file as CSV
     labels = {}
