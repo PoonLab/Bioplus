@@ -41,7 +41,8 @@ def get_metadata(accn, fields, db='nucleotide'):
     :param db:  str, Genbank database to query
     :return:  dict, values associated with fields
     """
-    handle = Entrez.efetch(db=db, rettype='gb', retmode='text', id=accn)
+    handle = Entrez.efetch(db=db, rettype='gb', retmode='text', id=accn,
+                           seq_start=1, seq_stop=1)
     output = SeqIO.parse(handle, format='genbank')
     for record in output:
         source = record.features[0]
