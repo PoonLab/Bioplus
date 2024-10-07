@@ -78,12 +78,18 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-o", "--outfile", type=argparse.FileType('w'), default=sys.stdout,
-        help="option, path to write CSV output. Default is stdout."
+        help="option, path to write CSV output.  If --relabel, then "
+             "outputs a new sequence or tree file.  Default is stdout."
     )
     parser.add_argument(
         "--nover", action="store_true",
         help="Set if accession number has no version number suffix, e.g., "
              "AB123456 instead of AB123456.1"
+    )
+    parser.add_argument(
+        "--relabel", action="store_true",
+        help="Use metadata to replace sequence/tree labels with: "
+             "[organism]_[host]_[country]_[collection date]."
     )
     args = parser.parse_args()
 
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     assert args.batch > 0, "Batch size must be positive!"
 
     fields = ('organism', 'mol_type', 'isolate', 'isolation_source', 'host',
-              'country', 'collection_date')
+              'geo_loc_name', 'collection_date')
     Entrez.email = args.email
 
     # extract accessions from input
@@ -128,10 +134,29 @@ if __name__ == "__main__":
     writer.writeheader()
 
     # retrieve the metadata and write to file as CSV
+    labels = {}
     for i in range(0, len(accns), args.batch):
         query = ','.join(accns[i:(i+args.batch)])
         rows = get_metadata(query, fields, db=args.db)
         for j, row in enumerate(rows):
-            row.update({"header": headers[i+j]})
-            writer.writerow(row)
+            if args.relabel:
+                lab = f"{accns[i+j]}_{row['geo_loc_name']}_{row['collection_date']}"
+                labels.update({headers[i+j]: lab})
+            else:
+                row.update({"header": headers[i+j]})
+                writer.writerow(row)
         time.sleep(args.delay)
+
+    if args.relabel:
+        if args.format == 'newick':
+            for tip in phy.get_terminals():
+                tip.name = labels[tip.name]
+            Phylo.write(phy, args.outfile, 'newick')
+        else:
+            # reload input file
+            records = SeqIO.parse(args.infile, args.format)
+            for record in records:
+                record.description = labels[record.description]
+                SeqIO.write(record, args.outfile, args.format)
+    
+    args.outfile.close()
