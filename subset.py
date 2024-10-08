@@ -31,6 +31,8 @@ def sampler(infile, format='fasta', prop=0, num=0):
     for _ in records:
         count += 1
 
+    sys.stderr.write(f"Detected {count} records\n")
+
     if num == 0:
         if prop == 0:
             sys.stdout.write(f"{count}\n")
@@ -59,6 +61,8 @@ if __name__ == "__main__":
                         default=sys.stdout, 
                         help="Output, path to write down-sampled sequences "
                              "(default: stdout).")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Option, set random seed.")
     args = parser.parse_args()
 
     if args.prop < 0 or args.prop > 1:
@@ -68,6 +72,11 @@ if __name__ == "__main__":
         sys.stderr.write("ERROR: -n/--num cannot be negative!\n")
         sys.exit()
 
+    if args.seed:
+        random.seed(args.seed)
+
     sample = sampler(args.infile, args.format, prop=args.prop, num=args.num)
     if sample:
         SeqIO.write(sample, args.output, args.format)
+        sys.stderr.write(f"Wrote {len(sample)} records to output.\n")
+
