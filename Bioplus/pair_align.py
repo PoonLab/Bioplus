@@ -30,6 +30,8 @@ command.
 
 def mafft(query, ref, binpath="mafft"):
     """
+    Wrapper function for MAFFT multiple sequence alignment program
+    
     :param query:  str, sequence to align to reference
     :param ref:  str, reference sequence
     :param binpath:  str, path to MAFFT executable file
@@ -46,7 +48,12 @@ def mafft(query, ref, binpath="mafft"):
     result = list(SeqIO.parse(StringIO(stdout), "fasta"))
     aref = str(result[0].seq)
     aquery = str(result[1].seq)
+    return aquery, aref
 
+
+def pair_align(query, ref, binpath='mafft'):
+    """ Align query sequence to reference and drop insertions """
+    aquery, aref = mafft(query, ref, binpath=binpath)
     newseq = ""
     for i, aa in enumerate(aref):
         if aa == '-':

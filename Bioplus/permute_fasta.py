@@ -15,6 +15,7 @@ relationships.
 
 
 def parse_fasta(handle):
+    """ Parse headers and sequences from a FASTA file """
     res = []
     header = None
     sequence = ''
@@ -50,6 +51,22 @@ def untranspose_fasta(columns):
     return seqs
 
 
+def permute_fasta(handle):
+    """
+    Do random permutation of columns in a sequence alignment.
+    
+    :param handle:  an open stream (read mode) to a file containing 
+                    a sequence alignment in FASTA format
+    :return:  dict, permuted sequences keyed by header
+    """
+    fasta = parse_fasta(handle)
+    headers = [h for h, s in fasta]  # save headers in a list
+    columns = transpose_fasta(fasta)
+    random.shuffle(columns)
+    pseqs = untranspose_fasta(columns)
+    return zip(headers, pseqs)
+
+
 if __name__ == "__main__":
     # command line interface
     parser = argparse.ArgumentParser(description=description)
@@ -60,14 +77,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # import sequences from FASTA file
-    fasta = parse_fasta(args.input)
-    headers = [h for h, s in fasta]  # save headers in a list
-
-    # do random permutation of columns in sequence alignment
-    columns = transpose_fasta(fasta)
-    random.shuffle(columns)
-    pseqs = untranspose_fasta(columns)
-    pfasta = zip(headers, pseqs)
+    pfasta = permute_fasta(args.input)
 
     # write result to another file
     for header, seq in pfasta:

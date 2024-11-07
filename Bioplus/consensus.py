@@ -17,7 +17,7 @@ ambig_dict = dict(("".join(sorted(v)), k) for k, v in mixture_dict.items())
 def get_columns(aln, is_nuc=False):
     """ 
     Count frequencies of characters in each position 
-    :param aln:  Bio.AlignIO object
+    :param aln:  iterator, Bio.SeqIO.SeqRecord objects
     :param is_nuc:  bool, resolve nucleotide mixtures
     :return:  list of dicts (char, count) for all alignment positions
     """
@@ -49,12 +49,12 @@ def get_columns(aln, is_nuc=False):
     return columns
 
 
-def conseq(columns, thresh=0.5, is_nuc=False):
+def conseq(aln, thresh=0.5, is_nuc=False):
     """
     Generate consensus sequence from an alignment based on 
     column-specific frequencies.
     
-    :param columns:  list of dicts from get_columns()
+    :param aln:  Bio.SeqIO.SeqRecord iterator
     :param thresh:  float, minimum frequency for character to be included in mixture
     :param is_nuc:  bool, if True then handle multiple states as a nucleotide mixture
     :return:  str, plurality consensus sequence
@@ -63,20 +63,24 @@ def conseq(columns, thresh=0.5, is_nuc=False):
     columns = get_columns(aln, is_nuc=is_nuc)
     for col in columns:
         total = sum(col.values())
+        if total == 0:
+            sys.stderr.write("ERROR: encountered zero length column\n")
+            sys.exit()
+            
         intermed = [(count/total, nt) for nt, count in col.items()]
         intermed.sort(reverse=True)
-        states = []
-        for freq, nt in intermed:
+        states = [intermed[0][1]]  # majority state
+        for freq, nt in intermed[1:]:
             if freq < thresh:
                 break
             states.append(nt)
             
-        states = ''.join(sorted(states))
+        key = ''.join(sorted(states))
         if len(states) == 1:
-            seq += states
+            seq += states[0]
         else:
-            if is_nuc and states in ambig_dict:
-                seq += ambig_dict[states]  # convert nucleotide mixture
+            if is_nuc and key in ambig_dict:
+                seq += ambig_dict[key]  # convert nucleotide mixture
             else:
                 if states[0] == '-':
                     seq += '-'
