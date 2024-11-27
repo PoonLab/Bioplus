@@ -43,7 +43,8 @@ def prune_tips(phy, target, cache=False, trace=False):
             if hasattr(tip, "cache"):
                 kin.cache.extend(tip.cache)
 
-        tips = tips[1:]  # instead of calling get_terminals() again
+        #tips = tips[1:]  # BUG: this misses internal branches that have become tips
+        tips = phy.get_terminals()  # refresh listing
 
     return phy
 
