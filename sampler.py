@@ -45,9 +45,9 @@ def sample_by_date(records, max, delim="_", pos=-1, mode='year'):
         if len(bin) <= max:
             sample.extend(bin)
         else:
-            
+            sample.extend(random.sample(bin, max))
 
-    return by_date
+    return sample
 
 
 if __name__ == "__main__":
