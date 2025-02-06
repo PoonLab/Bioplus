@@ -1,5 +1,11 @@
 # Bioplus
-### A collection of Python scripts extending the functionality of Biopython
+A collection of Python scripts extending the functionality of Biopython
+
+## Install
+```
+git clone https://github.com/PoonLab/Bioplus
+pip install -e Bioplus
+```
 
 * `add_dates.py` - IN PROGRESS - Use metadata to relabel sequences in the associated FASTA file. Optionally, use the dates to down-sample the sequences to a target size so that dates are evenly distributed.
 * `dist.py` - Calculate a k-mer distance (Euclidean, spectrum kernel), p-distance or Jukes-Cantor corrected distance for an alignment of nucleotide sequences.

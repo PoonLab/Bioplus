@@ -5,12 +5,12 @@ import sys
 from datetime import datetime
 
 
-def sample_by_date(records, max, delim="_", pos=-1, mode='year'):
+def sample_by_date(records, target, delim="_", pos=-1, mode='year'):
     """ 
     Bin records by date intervals and draw random samples per bin
     up to a maximum number (max).
     @param records:  Bio.SeqIO iterable
-    @param max:  int, maximum number of records to sample per time interval
+    @param target:  int, maximum number of records to sample per time interval
     @param delim:  str, for parsing sequence labels
     @param pos:  int, position of date object in delimited sequence label
     @param mode:  str, binning by 'year' or by 'month'
@@ -25,7 +25,8 @@ def sample_by_date(records, max, delim="_", pos=-1, mode='year'):
             try:
                 dt = datetime.strptime(date_str, "%Y")
             except ValueError:
-                sys.stderr.write(f"ERROR: Failed to parse date {date_str} - skipping")
+                sys.stderr.write(f"ERROR: Failed to parse date {date_str} - "
+                                 f"skipping\n")
                 continue
         
         if mode == 'year':
@@ -33,7 +34,8 @@ def sample_by_date(records, max, delim="_", pos=-1, mode='year'):
         elif mode == 'month':
             key = (dt.year, dt.month)
         else:
-            sys.stderr.write(f"ERROR: Unrecognized mode '{mode}' in sample_by_date, exiting")
+            sys.stderr.write(f"ERROR: Unrecognized mode '{mode}' in "
+                             f"sample_by_date, exiting\n")
             sys.exit()
         
         if key not in by_date:
@@ -42,10 +44,10 @@ def sample_by_date(records, max, delim="_", pos=-1, mode='year'):
 
     sample = []
     for key, bin in by_date.items():
-        if len(bin) <= max:
-            sample.extend(bin)
+        if len(bin) <= target:
+            sample.extend(bin)  # not enough to sample
         else:
-            sample.extend(random.sample(bin, max))
+            sample.extend(random.sample(bin, target))
 
     return sample
 
@@ -61,24 +63,25 @@ if __name__ == "__main__":
                         help="Output format, default 'fasta'")
     parser.add_argument("-m", "--method", type=str, default="random",
                         choices=["random", "head", "tail", "year", "month"],
-                        help="Sampling method to use: 'random', sample completely "
-                             "at random; 'head', write first n; 'tail', write "
-                             "last n; 'year', downsample by year; 'month', downsample "
-                             "by month.")
+                        help="Sampling method to use: 'random', sample "
+                             "completely at random; 'head', write first n; "
+                             "'tail', write last n; 'year', downsample by "
+                             "year; 'month', downsample by month.")
     parser.add_argument("--delim", type=str, default="_",
-                        help="Delimiter to split sequence labels for --method 'year'"
-                             "or 'month'")
+                        help="Delimiter to split sequence labels for --method "
+                             "'year' or 'month'")
     parser.add_argument("--pos", type=int, default=-1,
-                        help="Position of date in sequence label, used only for "
-                             "--method 'year' or 'month'.  Defaults to -1.")
+                        help="Position of date in sequence label, used only "
+                             "for --method 'year' or 'month'.  Defaults to -1.")
     args = parser.parse_args()
 
     # load all sequences into memory
     records = list(SeqIO.parse(args.infile, args.format))
     if len(records) == 0:
-        print("Failed to read records, are you sure you set the correct --format?")
+        sys.stderr.write("Failed to read records, are you sure you set the correct "
+              "--format?\n")
         sys.exit()
-    print(f"Read {len(records)} sequences from file")
+    sys.stderr.write(f"Read {len(records)} sequences from file\n")
 
     if args.method == "random":
         sample = random.sample(records, args.target)
@@ -87,8 +90,8 @@ if __name__ == "__main__":
     elif args.method == "tail":
         sample = records[-args.target:]
     elif args.method in ["year", "month"]:
-        sample = sample_by_date(records, delim=args.delim, pos=args.pos, 
-                                mode=args.method)
+        sample = sample_by_date(records, target=args.target, delim=args.delim,
+                                pos=args.pos, mode=args.method)
     else:
         print(f"Error: unrecognized method {args.method}")
         sys.exit()
