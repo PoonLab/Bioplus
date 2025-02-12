@@ -8,10 +8,12 @@ import sys
 
 description = """\
 Use metadata to relabel sequences in the associated FASTA file.
-Optionally, use the dates to down-sample the sequences to a target 
-size so that dates are evenly distributed.  Output written to 
-stdout stream.  "header" field of metadata CSV must match the 
-sequence names in the FASTA file.
+
+"header" field of metadata CSV must match the sequence labels.
+By default, the script assumes the field to append contains a date.
+It attempts to parse variable date formats into a single ISO format.
+Use '-n' to bypass this behaviour and append the field directly, i.e.,
+if the field represents other metadata.
 """
 
 
@@ -102,8 +104,9 @@ if __name__ == "__main__":
                         help="File of sequences to process")
     parser.add_argument("metadata", type=argparse.FileType('r'),
                         help="CSV file containing metadata (from get_metadata.py)")
-    parser.add_argument("--field", type=str, default="collection_date",
+    parser.add_argument("field", type=str, default="collection_date",
                         help="Column label for field in CSV containing dates.")
+    # optional arguments
     parser.add_argument("-f", "--format", type=str, default="fasta",
                         help="Format specifier for input sequence file.")
     parser.add_argument("--debug", action="store_true",
@@ -116,33 +119,35 @@ if __name__ == "__main__":
     parser.add_argument("--full", action="store_true",
                         help="Set to match labels by full names (description) "
                              "and not just accession numbers (name).")
+    parser.add_argument("-n", "--not_date", action="store_true",
+                        help="Optionally, append literal value instead of parsing a date.")
     args = parser.parse_args()
 
-    # load metadata and parse collection dates
-    coldates = {}
+    # load metadata
+    metadata = {}
     for row in DictReader(args.metadata):
-        dt = lubridate(row[args.field])
-        if args.debug:
-            print(f"{row[args.field]},{dt}")
-        coldates.update({row["header"]: dt})
+        dt = row[args.field]
+        if not args.not_date:
+            dt = lubridate(dt)
+            if dt:  # is not None
+                dt = dt.year if args.year else dt.isoformat()
+            if args.debug:
+                print(f"{row[args.field]},{dt}")
+        metadata.update({row["header"]: dt})
 
     if args.debug:
-        sys.exit()
+        sys.exit()  # debug mode, quit without writing output
 
     # apply parsed dates to sequence labels
     for record in SeqIO.parse(args.infile, args.format):
         header = record.description if args.full else record.name
         try:
-            dt = coldates[header]
+            dt = metadata[header]
         except KeyError:
-            print(f"ERROR: Failed to retrieve date for {header}")
+            print(f"ERROR: Failed to retrieve metadata for {header}")
             sys.exit()
 
         if dt is None and not args.keep_all:
-            continue  # debug mode, quit without writing output
-
-        if args.year:
-            res = f">{record.description}_{dt.year}\n{record.seq}\n"
-        else:
-            res = f">{record.description}_{dt.isoformat()}\n{record.seq}\n"
+            continue  # skip record without date
+        res = f">{record.description}_{dt}\n{record.seq}\n"
         sys.stdout.write(res)
