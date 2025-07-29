@@ -90,6 +90,10 @@ if __name__ == "__main__":
         "--verbose", action="store_true",
         help="print progress monitoring messages to stderr"
     )
+    parser.add_argument(
+        "--trim", action="store_true", 
+        help="optionally remove any bases that induce gaps in reference."
+    )
     args = parser.parse_args()
 
     # read reference sequence
@@ -104,8 +108,15 @@ if __name__ == "__main__":
                 sys.stderr.write(record.name+'\n')
                 sys.stderr.flush()
             query = str(record.seq)
-            aligned = mafft(query=query, ref=ref, binpath=args.binpath)
-            outfile.write(f">{record.description}\n{aligned}\n")
+            aquery, aref = mafft(query=query, ref=ref, binpath=args.binpath)
+            if args.trim:
+                newseq = ''
+                for i, nt in enumerate(aref):
+                    if nt == '-':
+                        continue
+                    newseq += aquery[i]
+                aquery = newseq
+            outfile.write(f">{record.description}\n{aquery}\n")
     elif nprocs > 1:
         outfile = open(f"{args.outfile}.{my_rank}", 'w')
         for rn, record in enumerate(records):
