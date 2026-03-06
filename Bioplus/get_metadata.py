@@ -11,7 +11,7 @@ in the input file, based on their respective NCBI Genbank accession numbers.
 """
 
 pat1 = re.compile("[A-Z]{1,3}[0-9]{5,8}\\.[0-9]|[NXAYW][CGTWZMRP]_[A-Z0-9]+\\.[0-9]")
-pat2 = re.compile("[A-Z]{1,3}[0-9]{5,8}\\.[0-9]|[NXAYW][CGTWZMRP]_[A-Z0-9]+")
+pat2 = re.compile("[A-Z]{1,3}[0-9]{5,8}|[NXAYW][CGTWZMRP]_[A-Z0-9]+")
 
 
 def find_accn(label, versioned=True):
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         phy = Phylo.read(args.infile, "newick")
         headers = [tip.name for tip in phy.get_terminals()]
     else:
-        records = SeqIO.parse(args.infile, args.format)
+        records = list(SeqIO.parse(args.infile, args.format))
         headers = [record.description for record in records]
 
     intermed = [find_accn(header, versioned=not args.nover) for header in headers]
@@ -155,10 +155,13 @@ if __name__ == "__main__":
                 tip.name = labels[tip.name]
             Phylo.write(phy, args.outfile, 'newick')
         else:
-            # reload input file
-            records = SeqIO.parse(args.infile, args.format)
             for record in records:
-                record.description = labels[record.description]
+                label = labels.get(record.description, None)
+                sys.stderr.write(f"{label}\n")
+                if label is None:
+                    sys.stderr.write(f"Failed to match {record.description} to label\n")
+                    sys.exit()
+                record.description = f"{record.description}_{label}"
                 SeqIO.write(record, args.outfile, args.format)
     
     args.outfile.close()
