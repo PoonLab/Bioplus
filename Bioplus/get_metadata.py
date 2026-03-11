@@ -157,7 +157,7 @@ if __name__ == "__main__":
         else:
             for record in records:
                 label = labels.get(record.description, None)
-                sys.stderr.write(f"{label}\n")
+                #sys.stderr.write(f"{label}\n")
                 if label is None:
                     sys.stderr.write(f"Failed to match {record.description} to label\n")
                     sys.exit()
