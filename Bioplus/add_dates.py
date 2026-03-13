@@ -121,7 +121,8 @@ if __name__ == "__main__":
                              "and not just accession numbers (name).")
     parser.add_argument("-n", "--not_date", action="store_true",
                         help="Optionally, append literal value instead of parsing a date.")
-    parser.add_argument("-o", "--outfile", default=sys.stdout, 
+    parser.add_argument("-o", "--outfile", type=argparse.FileType('w'),
+                        default=sys.stdout, 
                         help="Destination file for output (default:stdout)")
 
     args = parser.parse_args()
