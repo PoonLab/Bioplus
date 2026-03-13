@@ -121,6 +121,9 @@ if __name__ == "__main__":
                              "and not just accession numbers (name).")
     parser.add_argument("-n", "--not_date", action="store_true",
                         help="Optionally, append literal value instead of parsing a date.")
+    parser.add_argument("-o", "--outfile", default=sys.stdout, 
+                        help="Destination file for output (default:stdout)")
+
     args = parser.parse_args()
 
     # load metadata
@@ -150,4 +153,5 @@ if __name__ == "__main__":
         if dt is None and not args.keep_all:
             continue  # skip record without date
         res = f">{record.description}_{dt}\n{record.seq}\n"
-        sys.stdout.write(res)
+        args.outfile.write(res)
+
