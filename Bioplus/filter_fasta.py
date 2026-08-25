@@ -17,13 +17,14 @@ if __name__ == "__main__":
                         help="File of sequences to process")
     parser.add_argument("metadata", type=argparse.FileType('r'),
                         help="CSV file containing metadata (from get_metadata.py)")
+    parser.add_argument("field", type=str,
+                        help="Column label of field in CSV to filter FASTA.")
+
     parser.add_argument("-f", "--format", type=str, default="fasta",
                         help="Format specifier for input sequence file.")
     parser.add_argument("--name", type=str, default="header",
                         help="Column label of labels to match metadata to FASTA. "
                              "Defaults to 'header'.")
-    parser.add_argument("--field", type=str,
-                        help="Column label of field in CSV to filter FASTA.")
     parser.add_argument("--append", action="store_true",
                         help="If set, add field to FASTA labels.")
     parser.add_argument("--sep", type=str, default="_",
@@ -44,17 +45,18 @@ if __name__ == "__main__":
         values.update({row[args.name]: row[args.field]})
 
     # apply parsed dates to sequence labels
-    match_error = False
+    faults = 0
     for record in SeqIO.parse(args.infile, args.format):
         header = record.description if args.full else record.name
         value = values.get(header, None)
         if value is None:
-            sys.stderr.write(f"Warning: Could not retrieve metadata for {header}, skipping.")
-            if not match_error:
-                sys.stderr.write(
-                    "If this affects multiple records, try running with "
-                    "--full flag to match full labels.")
-                match_error = True
+            if faults <= 10:
+                sys.stderr.write(f"Warning: Could not retrieve metadata for {header}, skipping.\n")
+                faults += 1
+                if faults > 10:
+                    sys.stderr.write("*** This affects multiple records, try running with "
+                                     "--full flag to match full labels. ***\n")
+                    sys.stderr.write("Suppressing any further warnings.\n")
             continue
 
         if value == "" or value == args.missing:
