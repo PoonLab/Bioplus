@@ -2,6 +2,7 @@ import random
 from Bio import SeqIO
 import argparse
 import sys
+import gzip
 
 
 description = """
@@ -40,6 +41,7 @@ def sampler(infile, format='fasta', prop=0, num=0):
         else:
             num = int(round(count * prop))
     
+    infile.seek(0)  # reset to top of file
     idx = random.sample(range(count), num)
     records = SeqIO.parse(infile, format)
     sample = [record for i, record in enumerate(records) if i in idx]
@@ -54,15 +56,16 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--format", type=str, default='fasta',
                         help="Option, format of input file (default: 'fasta')")
     parser.add_argument("-p", "--prop", type=float, default=0.,
-                        help="Proportion of sequences to sample.")
+                        help="Proportion of sequences to sample (e.g., '0.1' samples 10%%)")
     parser.add_argument("-n", "--num", type=int, default=0,
                         help="Number of sequences to sample.")
-    parser.add_argument("-o", "--output", type=argparse.FileType('w'),
-                        default=sys.stdout, 
+    parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output, path to write down-sampled sequences "
                              "(default: stdout).")
     parser.add_argument("--seed", type=int, default=None,
                         help="Option, set random seed.")
+    parser.add_argument("-z", "--gzip", action="store_true", 
+                        help="Option, input is gzip-compressed, write gzip output.")
     args = parser.parse_args()
 
     if args.prop < 0 or args.prop > 1:
@@ -75,8 +78,22 @@ if __name__ == "__main__":
     if args.seed:
         random.seed(args.seed)
 
-    sample = sampler(args.infile, args.format, prop=args.prop, num=args.num)
+    infile = gzip.open(args.infile, 'rt') if args.gzip else open(args.infile)
+
+    # handle output options
+    if args.output is None:
+        if args.gzip:
+            sys.stderr.write("ERROR: gzip not supported for stdout, please provide --output path.\n")
+            sys.exit()    
+        outfile = sys.stdout
+    else:
+        if args.gzip:
+            outfile = gzip.open(args.output, 'wt')
+        else:
+            outfile = open(args.output, 'w')
+
+    sample = sampler(infile, args.format, prop=args.prop, num=args.num)
     if sample:
-        SeqIO.write(sample, args.output, args.format)
+        SeqIO.write(sample, outfile, args.format)
         sys.stderr.write(f"Wrote {len(sample)} records to output.\n")
 
